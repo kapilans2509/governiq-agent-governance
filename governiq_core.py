@@ -20,26 +20,28 @@ DEFAULT_POLICY = {
   r"\b(drop\s+database|truncate\s+table|rm\s+-rf)\b"]
 }
 
+
 THREATS = [
     (
         "prompt_injection",
         "Instruction-override phrase",
-        r"(?i)\bignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions\b",
+        r"(?i)\b(?:ignore|disregard|forget)\b.{0,60}\b(?:previous|prior|above|earlier|system)\b.{0,40}\binstructions\b",
+ 
     ),
     (
         "role_impersonation",
-        "Attempt to assume a privileged role",
-        r"(?i)\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be)\s+(?:the\s+)?(?:administrator|admin|system|developer|root)\b",
+        "Attempt to assume or claim a privileged role",
+        r"(?i)\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be|i\s+am|i'm)\s+(?:the\s+)?(?:system\s+administrator|administrator|admin|system|developer|root)\b",
     ),
     (
         "safeguard_override",
         "Attempt to bypass safeguards",
-        r"(?i)\b(?:override|bypass|disable|ignore)\b.{0,80}\b(?:restrictions|safeguards|security\s+rules|policies|guardrails)\b",
+        r"(?i)\b(?:override|bypass|disable|ignore|disregard)\b.{0,100}\b(?:restrictions|safeguards|security\s+rules|policies|guardrails|governance\s+enforcement)\b",
     ),
     (
         "confidential_data_request",
         "Request to disclose confidential information",
-        r"(?i)\b(?:reveal|show|disclose|print|expose|dump)\b.{0,80}\b(?:confidential|secret|private|hidden)\b.{0,40}\b(?:data|information|instructions|records|content)\b",
+        r"(?i)\b(?:reveal|show|disclose|print|expose|dump|return)\b.{0,80}\b(?:confidential|secret|private|hidden|internal)\b.{0,40}\b(?:data|information|instructions|records|content|configuration|system\s+prompt|governance\s+rules)\b",
     ),
     (
         "credential_exposure",
@@ -59,7 +61,7 @@ THREATS = [
     (
         "privilege_escalation",
         "Privilege escalation",
-        r"(?i)\b(?:sudo|as\s+root|chmod\s+777|grant\s+admin)\b",
+        r"(?i)\b(?:sudo|as\s+root|chmod\s+777|grant\s+admin|disable\s+(?:the\s+)?governance\s+enforcement)\b",
     ),
 ]
 
