@@ -39,6 +39,11 @@ THREATS = [
         r"(?i)\b(?:override|bypass|disable|ignore|disregard)\b.{0,100}\b(?:restrictions|safeguards|security\s+rules|policies|guardrails|governance\s+enforcement)\b",
     ),
     (
+        "governance_disable_request",
+        "Attempt to disable governance enforcement",
+        r"(?i)\b(?:disable|turn\s+off|deactivate|bypass)\b.{0,80}\b(?:governance|policy)\s+(?:enforcement|checks|controls)\b",
+    ),
+    (
         "confidential_data_request",
         "Request to disclose confidential information",
         r"(?i)\b(?:reveal|show|disclose|print|expose|dump|return)\b.{0,80}\b(?:confidential|secret|private|hidden|internal)\b.{0,40}\b(?:data|information|instructions|records|content|configuration|system\s+prompt|governance\s+rules)\b",
@@ -117,20 +122,71 @@ def detect(text):
   m=re.search(pattern,text)
   if m: found.append({"signal_id":sid,"description":label,"matched_text":m.group(0)[:120]})
  return found
-def evaluate(tool,text,mode="Standard",calls_used=0,approval_recheck=False):
- p=load_policy(); mode=mode if mode in p["governance_modes"] else "Standard"
- cfg=p["governance_modes"][mode]; threats=detect(text)
- if len(text)>p["max_input_chars"]: d,r="DENY","Input exceeds maximum length."
- elif calls_used>=p["max_calls_per_session"]: d,r="DENY","Session call limit reached."
- elif tool in p["blocked_tools"]: d,r="DENY",f"Tool '{tool}' is explicitly blocked."
- elif tool not in p["allowed_tools"]: d,r="DENY",f"Tool '{tool}' is not allowlisted."
- elif threats and cfg["block_threats"]: d,r="DENY",f"Threat signal detected: {threats[0]['signal_id']}."
- elif cfg["block_threats"] and any(re.search(x,text,re.I) for x in p["blocked_patterns"]): d,r="DENY","Configured blocked pattern matched."
- elif (tool in p["require_human_approval"] or cfg["require_approval_for_all"]) and not approval_recheck: d,r="REVIEW",f"Human approval required for '{tool}'."
- else: d,r="ALLOW","Policy checks passed."
- result={"decision":d,"reason":r,"tool":tool,"mode":mode,"threats":threats,"policy_version":p["version"],"evaluated_at":now()}
- audit("request_evaluated",{**result,"input_preview":text[:160]})
- return result
+
+def evaluate(tool, text, mode="Standard", calls_used=0, approval_recheck=False):
+    p = load_policy()
+    mode = mode if mode in p["governance_modes"] else "Standard"
+    cfg = p["governance_modes"][mode]
+    threats = detect(text)
+
+    # Detect requests to disable governance before approval handling.
+    governance_disable = any(
+        t["signal_id"] == "governance_disable_request"
+        for t in threats
+    )
+
+    # Only exempt an explicitly quoted instruction when the surrounding
+    # request clearly identifies it as untrusted text to analyze.
+    quoted_untrusted = (
+        "as untrusted input" in text.lower()
+        and "do not follow the quoted instruction" in text.lower()
+    )
+
+    if len(text) > p["max_input_chars"]:
+        d, r = "DENY", "Input exceeds maximum length."
+    elif calls_used >= p["max_calls_per_session"]:
+        d, r = "DENY", "Session call limit reached."
+    elif tool in p["blocked_tools"]:
+        d, r = "DENY", f"Tool '{tool}' is explicitly blocked."
+    elif tool not in p["allowed_tools"]:
+        d, r = "DENY", f"Tool '{tool}' is not allowlisted."
+    elif governance_disable and mode == "Locked":
+        d, r = "DENY", "Governance enforcement cannot be disabled in Locked mode."
+    elif threats and cfg["block_threats"] and not quoted_untrusted:
+        confidential_only = (
+    len(threats) == 1
+    and threats[0]["signal_id"] == "confidential_data_request"
+)
+
+        if confidential_only and not governance_disable:
+          d, r = "REVIEW", "Sensitive-data request requires human review."
+        else:
+          d, r = "DENY", f"Threat signal detected: {threats[0]['signal_id']}."
+    elif cfg["block_threats"] and any(
+        re.search(pattern, text, re.I)
+        for pattern in p["blocked_patterns"]
+    ):
+        d, r = "DENY", "Configured blocked pattern matched."
+    elif (
+        tool in p["require_human_approval"]
+        or cfg["require_approval_for_all"]
+    ) and not approval_recheck:
+        d, r = "REVIEW", f"Human approval required for '{tool}'."
+    else:
+        d, r = "ALLOW", "Policy checks passed."
+
+    result = {
+        "decision": d,
+        "reason": r,
+        "tool": tool,
+        "mode": mode,
+        "threats": threats,
+        "policy_version": p["version"],
+        "evaluated_at": now(),
+    }
+    audit("request_evaluated", {**result, "input_preview": text[:160]})
+    return result
+
 def execute_demo(tool,text):
  p=load_policy()
  if tool not in p["allowed_tools"] or tool in p["blocked_tools"]: raise PermissionError("No permitted demo adapter for this tool.")
