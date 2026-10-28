@@ -1,6 +1,60 @@
+import os
+import requests
+import streamlit as st
 import json
 import pandas as pd
 import streamlit as st
+
+
+API_URL = "https://governiq-agent-governance.onrender.com"
+
+
+def evaluate_with_api(
+    tool: str,
+    user_input: str,
+    mode: str = "Standard",
+    session_id: str = "dashboard-demo",
+    approved: bool = False,
+):
+    """Send a governance request to the deployed FastAPI backend."""
+
+    payload = {
+        "tool": tool,
+        "input": user_input,
+        "mode": mode,
+        "session_id": session_id,
+        "approved": approved,
+    }
+
+    headers = {}
+
+    # Configure the same key in Render and Streamlit Secrets
+    api_key = st.secrets.get("GOVERNIQ_API_KEY", "")
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    try:
+        response = requests.post(
+            f"{API_URL}/evaluate",
+            json=payload,
+            headers=headers,
+            timeout=60,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    except requests.exceptions.Timeout:
+        st.error("The API request timed out. Try again.")
+    except requests.exceptions.HTTPError as exc:
+        st.error(
+            f"API returned HTTP {exc.response.status_code}: "
+            f"{exc.response.text[:500]}"
+        )
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Could not connect to the API: {exc}")
+
+    return None
+
 
 from governiq_core import (
     load_policy,
@@ -766,3 +820,40 @@ with tabs[6]:
     st.caption(
         "GovernIQ · Agent Governance MVP · Safe simulated tools"
     )
+
+    
+st.subheader("Live Governance API")
+
+with st.form("live_api_test"):
+    tool = st.selectbox(
+        "Select tool",
+        ["search_policy", "read_status", "draft_report"],
+    )
+
+    user_input = st.text_area(
+        "Request input",
+        value="Find policies about least privilege",
+    )
+
+    mode = st.selectbox(
+        "Governance mode",
+        ["Open", "Standard", "Strict", "Locked"],
+        index=1,
+    )
+
+    submitted = st.form_submit_button("Evaluate with Live API")
+
+if submitted:
+    with st.spinner("Evaluating request..."):
+        result = evaluate_with_api(
+            tool=tool,
+            user_input=user_input,
+            mode=mode,
+        )
+
+    if result is not None:
+        decision = result.get("decision", "UNKNOWN")
+
+        st.write("### Governance Decision")
+        st.write(decision)
+        st.json(result)
