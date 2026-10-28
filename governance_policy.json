@@ -1,0 +1,42 @@
+{
+  "name": "GovernIQ baseline",
+  "version": "2.0.0",
+  "allowed_tools": [
+    "search_policy",
+    "read_status",
+    "draft_report"
+  ],
+  "blocked_tools": [
+    "shell_exec",
+    "delete_database",
+    "send_external_data"
+  ],
+  "require_human_approval": [
+    "draft_report"
+  ],
+  "max_calls_per_session": 10,
+  "max_input_chars": 4000,
+  "governance_modes": {
+    "Open": {
+      "block_threats": false,
+      "require_approval_for_all": false
+    },
+    "Standard": {
+      "block_threats": true,
+      "require_approval_for_all": false
+    },
+    "Strict": {
+      "block_threats": true,
+      "require_approval_for_all": true
+    },
+    "Locked": {
+      "block_threats": true,
+      "require_approval_for_all": true
+    }
+  },
+  "blocked_patterns": [
+    "ignore\\s+(all\\s+)?(previous|prior|above)\\s+instructions",
+    "\\b(api[_ -]?key|password|secret)\\s*[:=]\\s*\\S+",
+    "\\b(drop\\s+database|truncate\\s+table|rm\\s+-rf)\\b"
+  ]
+}
