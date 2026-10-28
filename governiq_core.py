@@ -19,12 +19,50 @@ DEFAULT_POLICY = {
   r"\b(api[_ -]?key|password|secret)\s*[:=]\s*\S+",
   r"\b(drop\s+database|truncate\s+table|rm\s+-rf)\b"]
 }
+
 THREATS = [
- ("prompt_injection","Instruction-override phrase",r"(?i)ignore\s+(all\s+)?(previous|prior|above)\s+instructions"),
- ("credential_exposure","Credential-like key/value",r"(?i)\b(api[_ -]?key|password|secret|token)\s*[:=]\s*\S+"),
- ("data_exfiltration","Possible external bulk transfer",r"(?i)(send|export|upload|transfer)\s+(all|every|entire)\s+.{0,100}(external|outside|third.party)"),
- ("destructive_action","Destructive command",r"(?i)\b(rm\s+-rf|drop\s+database|truncate\s+table|format\s+c:)\b"),
- ("privilege_escalation","Privilege escalation",r"(?i)\b(sudo|as root|chmod\s+777|grant\s+admin)\b")]
+    (
+        "prompt_injection",
+        "Instruction-override phrase",
+        r"(?i)\bignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions\b",
+    ),
+    (
+        "role_impersonation",
+        "Attempt to assume a privileged role",
+        r"(?i)\b(?:you\s+are\s+now|act\s+as|pretend\s+to\s+be)\s+(?:the\s+)?(?:administrator|admin|system|developer|root)\b",
+    ),
+    (
+        "safeguard_override",
+        "Attempt to bypass safeguards",
+        r"(?i)\b(?:override|bypass|disable|ignore)\b.{0,80}\b(?:restrictions|safeguards|security\s+rules|policies|guardrails)\b",
+    ),
+    (
+        "confidential_data_request",
+        "Request to disclose confidential information",
+        r"(?i)\b(?:reveal|show|disclose|print|expose|dump)\b.{0,80}\b(?:confidential|secret|private|hidden)\b.{0,40}\b(?:data|information|instructions|records|content)\b",
+    ),
+    (
+        "credential_exposure",
+        "Credential-like key/value",
+        r"(?i)\b(?:api[_ -]?key|password|secret|token)\s*[:=]\s*\S+",
+    ),
+    (
+        "data_exfiltration",
+        "Possible external bulk transfer",
+        r"(?i)\b(?:send|export|upload|transfer)\s+(?:all|every|entire)\s+.{0,100}\b(?:external|outside|third.party)\b",
+    ),
+    (
+        "destructive_action",
+        "Destructive command",
+        r"(?i)\b(?:rm\s+-rf|drop\s+database|truncate\s+table|format\s+c:)\b",
+    ),
+    (
+        "privilege_escalation",
+        "Privilege escalation",
+        r"(?i)\b(?:sudo|as\s+root|chmod\s+777|grant\s+admin)\b",
+    ),
+]
+
 def load_policy():
  if not POLICY_FILE.exists(): POLICY_FILE.write_text(json.dumps(DEFAULT_POLICY,indent=2),encoding="utf-8")
  p=json.loads(POLICY_FILE.read_text(encoding="utf-8"))
