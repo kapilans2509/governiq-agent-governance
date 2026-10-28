@@ -49,6 +49,11 @@ THREATS = [
         r"(?i)\b(?:reveal|show|disclose|print|expose|dump|return)\b.{0,80}\b(?:confidential|secret|private|hidden|internal)\b.{0,40}\b(?:data|information|instructions|records|content|configuration|system\s+prompt|governance\s+rules)\b",
     ),
     (
+        "hidden_instruction_disclosure",
+        "Request to disclose hidden system instructions",
+        r"(?i)\b(?:print|reveal|show|disclose|expose|dump)\b.{0,60}\b(?:hidden|system)\s+(?:system\s+)?(?:prompt|instructions?)\b",
+    ),
+    (
         "credential_exposure",
         "Credential-like key/value",
         r"(?i)\b(?:api[_ -]?key|password|secret|token)\s*[:=]\s*\S+",
@@ -158,7 +163,14 @@ def evaluate(tool, text, mode="Standard", calls_used=0, approval_recheck=False):
     and threats[0]["signal_id"] == "confidential_data_request"
 )
 
-        if confidential_only and not governance_disable:
+        if (
+    confidential_only
+    and not governance_disable
+    and not any(
+        t["signal_id"] == "hidden_instruction_disclosure"
+        for t in threats
+    )
+):
           d, r = "REVIEW", "Sensitive-data request requires human review."
         else:
           d, r = "DENY", f"Threat signal detected: {threats[0]['signal_id']}."
